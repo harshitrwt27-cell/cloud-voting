@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="CloudVote - Cloud based voting management system providing secure, accessible online voting">
+    <link rel="icon" href="favicon.ico">
+    <link rel="preconnect" href="https://cdn-icons-png.flaticon.com" crossorigin>
+    <title>CloudVote | Home</title>
+    <style>
+        /* sensible defaults */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: lavender;
+            margin: 0;
+            padding: 0 0 60px; /* bottom padding so fixed footer doesn't cover content */
+        }
+        header {
+            background-color: skyblue;
+            padding: 15px;
+            text-align: center;
+            color: white;
+        }
+        nav {
+            background-color: lightblue;
+            text-align: center;
+            padding: 10px;
+        }
+        nav a {
+            color: darkblue;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: bold;
+            padding: 6px 8px;
+        }
+        nav a:hover {
+            color: darkgreen;
+        }
+        nav a:focus-visible {
+            outline: 3px solid #ffd54f;
+            outline-offset: 2px;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 20px;
+            gap: 10px;
+        }
+        .card {
+            background-color: whitesmoke;
+            width: 250px;
+            margin: 15px;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0px 0px 10px lightgray;
+            text-align: center;
+        }
+        .card img {
+            width: 100%;
+            border-radius: 10px;
+            height: auto; /* preserve aspect ratio */
+            display: block; /* remove inline-gap */
+        }
+        footer {
+            background-color: skyblue;
+            text-align: center;
+            color: white;
+            padding: 10px;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+        button {
+            background-color: lightgreen;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: mediumseagreen;
+            color: white;
+        }
+        button:focus-visible {
+            outline: 3px solid #ffd54f;
+            outline-offset: 2px;
+        }
+
+        /* Responsive: stack cards on narrow screens */
+        @media (max-width: 600px) {
+            .card {
+                width: calc(100% - 40px);
+                margin: 10px;
+            }
+            nav a { margin: 0 8px; }
+        }
+
+        /* Skip link for keyboard users */
+        .skip-link {
+            position: absolute;
+            left: -999px;
+            top: auto;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+        .skip-link:focus {
+            position: static;
+            width: auto;
+            height: auto;
+            left: 0;
+            background: #000;
+            color: #fff;
+            padding: 8px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<header>
+    <h1>CloudVote</h1>
+    <p>Cloud Based Voting Management System</p>
+</header>
+
+<nav>
+    <a href="index.html">Home</a>
+    <a href="login.html">Voter Login</a>
+    <a href="vote.html">Vote Now</a>
+    <a href="events.html">Events</a>
+    <a href="biometric.html">Biometric Verification</a>
+    <a href="admin.html">Admin</a>
+    <a href="chat.html">Chatbot</a>
+</nav>
+
+<div class="container" id="main">
+    <div class="card">
+        <img src="https://cdn-icons-png.flaticon.com/512/1040/1040230.png" alt="Shield with checkmark representing secure voting" loading="lazy">
+        <h3>Secure Voting</h3>
+        <p>Your vote is safely encrypted and stored in the cloud.</p>
+    </div>
+
+    <div class="card">
+        <img src="https://cdn-icons-png.flaticon.com/512/1041/1041886.png" alt="Cloud with network nodes representing cloud technology" loading="lazy">
+        <h3>Cloud Technology</h3>
+        <p>Hosted on reliable cloud servers ensuring uptime and transparency.</p>
+    </div>
+
+    <div class="card">
+        <img src="https://cdn-icons-png.flaticon.com/512/942/942748.png" alt="Mobile device representing easy access" loading="lazy">
+        <h3>Easy Access</h3>
+        <p>Vote anytime, anywhere with your secure login.</p>
+    </div>
+</div>
+
+<footer>
+    <p>Team Innovision © 2025 | CloudVote Project</p>
+</footer>
+
+</body>
+</html>

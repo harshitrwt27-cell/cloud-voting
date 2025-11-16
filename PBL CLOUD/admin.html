@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CloudVote | Admin Dashboard</title>
+    <style>
+        body {
+            background-color: aliceblue;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        header {
+            background-color: skyblue;
+            color: white;
+            padding: 15px;
+        }
+        table {
+            margin: 30px auto;
+            border-collapse: collapse;
+            width: 60%;
+            background-color: whitesmoke;
+            box-shadow: 0 0 10px lightgray;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid lightgray;
+        }
+        th {
+            background-color: lightblue;
+        }
+        tr:hover {
+            background-color: honeydew;
+        }
+        nav {
+            margin-top: 10px;
+        }
+        a {
+            text-decoration: none;
+            color: darkblue;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>Admin Dashboard</h2>
+    <p>View live voting results</p>
+</header>
+
+<nav>
+    <a href="index.html">Home</a> |
+    <a href="login.html">Logout</a>
+</nav>
+
+<div style="max-width:900px;margin:20px auto;text-align:left;">
+        <h3>Admin Login</h3>
+        <div>
+            <input id="adminPassword" placeholder="Admin password">
+            <button id="adminLogin">Login as admin</button>
+            <button id="adminLogout">Logout</button>
+                <span id="adminMsg" style="margin-left:12px;color:crimson"></span>
+                <span id="adminBadge" style="margin-left:12px;padding:4px 8px;border-radius:6px;background:#ccc;color:#fff">Unknown</span>
+        </div>
+
+            <div style="margin-top:12px;">
+                <h4>Change Admin Password</h4>
+                <form id="changeAdminPw">
+                    <input id="oldPw" placeholder="Current password" required>
+                    <input id="newPw" placeholder="New password" required>
+                    <button type="submit">Change password</button>
+                </form>
+                <div id="changeMsg" style="color:crimson;margin-top:6px"></div>
+            </div>
+
+        <h3>Voters</h3>
+        <table id="usersTable" style="width:100%;border-collapse:collapse;margin-bottom:12px">
+            <thead><tr><th style="text-align:left">ID</th><th style="text-align:left">Name</th><th style="text-align:left">Party</th><th>Actions</th></tr></thead>
+            <tbody id="usersTbody"></tbody>
+        </table>
+
+        <div id="editArea" style="display:none;margin-bottom:18px">
+            <h4>Edit voter</h4>
+            <form id="editUserForm">
+                <input id="editId" name="id" placeholder="id" readonly>
+                <input id="editName" name="name" placeholder="name" required>
+                <input id="editParty" name="party" placeholder="party">
+                <input id="editPassword" name="password" placeholder="password"> <!-- leave blank to keep -->
+                <button type="submit">Save changes</button>
+                <button id="cancelEdit">Cancel</button>
+            </form>
+        </div>
+
+        <h3>Create voter</h3>
+        <form id="createUser">
+                <input name="id" placeholder="id" required>
+                <input name="name" placeholder="name" required>
+                <input name="party" placeholder="party">
+                <input name="password" placeholder="password" required>
+                <button type="submit">Create</button>
+        </form>
+
+        <h3>Live Results</h3>
+        <div id="resultsPanel" style="background:#fff;padding:12px;border-radius:6px;box-shadow:0 0 6px #ddd;max-width:600px">
+            <div id="resultsSummary">Loading results...</div>
+            <div id="resultsRecords" style="margin-top:8px;font-size:0.9em;color:#333"></div>
+        </div>
+        
+        <h3>Admin Tools</h3>
+        <div style="margin-top:8px;">
+            <button id="btnShowAll">Show all data</button>
+            <button id="btnRunTests">Run server tests</button>
+        </div>
+        <pre id="adminOutput" style="background:#222;color:#eee;padding:12px;border-radius:6px;max-width:900px;overflow:auto;margin-top:12px;white-space:pre-wrap"></pre>
+</div>
+
+<script>
+async function apiGet(path){
+    const res = await fetch(path, {credentials: 'same-origin'});
+    if (!res.ok) throw new Error(res.statusText || 'Request failed');
+    return res.json();
+}
+async function apiPost(path, body){
+    const headers = {'Content-Type':'application/json'};
+    const res = await fetch(path, {method:'POST', headers, body: JSON.stringify(body), credentials: 'same-origin'});
+    const json = await res.json().catch(()=>({}));
+    if (!res.ok) throw new Error(json.error || res.statusText || 'Request failed');
+    return json;
+}
+
+async function refreshUsers(){
+    const container = document.getElementById('users');
+    try{
+        const data = await apiGet('/api/users');
+            // render table rows
+            const tbody = document.getElementById('usersTbody');
+            tbody.innerHTML = data.voters.map(u =>
+                `<tr><td>${u.id}</td><td>${u.name}</td><td>${u.party}</td><td><button class="edit" data-id="${u.id}">Edit</button> <button class="del" data-id="${u.id}">Delete</button></td></tr>`).join('');
+            // attach handlers
+            tbody.querySelectorAll('.del').forEach(b => b.addEventListener('click', async (ev)=>{
+                const id = ev.target.dataset.id;
+                if (!confirm('Delete ' + id + '?')) return;
+                try{
+                    const res = await fetch('/api/users/' + encodeURIComponent(id), { method: 'DELETE', credentials: 'same-origin' });
+                    if (!res.ok){ const j = await res.json().catch(()=>({})); throw new Error(j.error||res.statusText); }
+                    refreshUsers();
+                }catch(err){ alert('Delete failed: ' + err.message); }
+            }));
+            tbody.querySelectorAll('.edit').forEach(b => b.addEventListener('click', (ev)=>{
+                const id = ev.target.dataset.id;
+                const user = data.voters.find(x=>x.id===id);
+                if (!user) return;
+                document.getElementById('editId').value = user.id;
+                document.getElementById('editName').value = user.name || '';
+                document.getElementById('editParty').value = user.party || '';
+                document.getElementById('editPassword').value = '';
+                document.getElementById('editArea').style.display = 'block';
+                window.scrollTo(0, document.getElementById('editArea').offsetTop - 20);
+            }));
+    }catch(err){
+        container.textContent = 'Error: ' + err.message;
+    }
+}
+
+document.getElementById('createUser').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const f = e.target;
+    const body = { id: f.id.value.trim(), name: f.name.value.trim(), party: f.party.value.trim(), password: f.password.value };
+    try{
+        await apiPost('/api/users', body);
+        f.reset();
+        refreshUsers();
+    }catch(err){
+        alert('Create failed: ' + err.message);
+    }
+});
+
+    document.getElementById('adminLogin').addEventListener('click', async (ev)=>{
+        ev.preventDefault();
+        const pw = document.getElementById('adminPassword').value;
+        if (!pw) { document.getElementById('adminMsg').textContent='Provide password'; return; }
+        try{
+            await apiPost('/api/admin/login', { password: pw });
+            document.getElementById('adminMsg').textContent='Admin logged in';
+            setTimeout(()=>document.getElementById('adminMsg').textContent='',1500);
+            refreshUsers();
+            refreshAdminStatus();
+        }catch(err){ document.getElementById('adminMsg').textContent = 'Login failed: '+err.message }
+    });
+
+        document.getElementById('adminLogout').addEventListener('click', async (ev)=>{
+        ev.preventDefault();
+        try{ await apiPost('/api/admin/logout', {}); document.getElementById('adminMsg').textContent='Logged out'; refreshUsers(); }
+        catch(err){ document.getElementById('adminMsg').textContent='Logout failed: '+err.message }
+    });
+
+        async function refreshAdminStatus(){
+            try{
+                const s = await apiGet('/api/admin/status');
+                const b = document.getElementById('adminBadge');
+                if (s.is_admin){ b.textContent='Admin'; b.style.background='green'; }
+                else { b.textContent='Not admin'; b.style.background='#999'; }
+            }catch(err){ /* ignore */}
+        }
+
+        // refresh status periodically
+        refreshAdminStatus(); setInterval(refreshAdminStatus, 5000);
+
+            // change admin password
+            document.getElementById('changeAdminPw').addEventListener('submit', async (e)=>{
+                e.preventDefault();
+                const oldPw = document.getElementById('oldPw').value;
+                const newPw = document.getElementById('newPw').value;
+                const msg = document.getElementById('changeMsg');
+                msg.textContent = 'Changing...';
+                try{
+                    await apiPost('/api/admin/change-password', { old_password: oldPw, new_password: newPw });
+                    msg.style.color = 'green'; msg.textContent = 'Password changed';
+                    setTimeout(()=>msg.textContent='',1500);
+                }catch(err){ msg.style.color='crimson'; msg.textContent = 'Change failed: '+err.message }
+            });
+
+        // handle edit submit
+        document.getElementById('editUserForm').addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const body = { name: document.getElementById('editName').value.trim(), party: document.getElementById('editParty').value.trim() };
+            const pw = document.getElementById('editPassword').value;
+            if (pw) body.password = pw;
+            try{
+                const res = await fetch('/api/users/' + encodeURIComponent(id), { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body), credentials: 'same-origin' });
+                if (!res.ok){ const j = await res.json().catch(()=>({})); throw new Error(j.error||res.statusText); }
+                document.getElementById('editArea').style.display = 'none';
+                refreshUsers();
+            }catch(err){ alert('Update failed: ' + err.message); }
+        });
+
+        document.getElementById('cancelEdit').addEventListener('click',(e)=>{ e.preventDefault(); document.getElementById('editArea').style.display='none'; });
+
+        // results
+        async function refreshResults(){
+            try{
+                const data = await apiGet('/api/results');
+                const opts = data.options || data;
+                document.getElementById('resultsSummary').innerHTML = Object.entries(opts).map(([k,v])=>`<div>${k}: ${v}</div>`).join('');
+                const records = (data.records||[]).slice().reverse().map(r=>`<div>${r.timestamp} — ${r.voter_id} → ${r.option}</div>`).join('');
+                document.getElementById('resultsRecords').innerHTML = records || '<div>No records</div>';
+            }catch(err){ document.getElementById('resultsSummary').textContent = 'Error loading results: '+err.message; }
+        }
+
+        // refresh periodically
+        refreshResults(); setInterval(refreshResults, 5000);
+
+        refreshUsers();
+        
+        // admin tools
+        document.getElementById('btnShowAll').addEventListener('click', async ()=>{
+            const out = document.getElementById('adminOutput'); out.textContent = 'Loading...';
+            try{
+                const data = await apiGet('/api/admin/all-data');
+                out.textContent = JSON.stringify(data, null, 2);
+            }catch(err){ out.textContent = 'Error: ' + err.message }
+        });
+
+        document.getElementById('btnRunTests').addEventListener('click', async ()=>{
+            const out = document.getElementById('adminOutput'); out.textContent = 'Running tests... (this may take a few seconds)';
+            try{
+                const data = await apiPost('/api/admin/run-tests', {});
+                out.textContent = 'Return code: ' + data.returncode + '\n\n' + (data.output || JSON.stringify(data));
+            }catch(err){ out.textContent = 'Error: ' + err.message }
+        });
+</script>
+
+</body>
+</html>

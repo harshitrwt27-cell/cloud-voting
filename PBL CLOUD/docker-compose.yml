@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6.0
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  app:
+    build: .
+    environment:
+      - FLASK_SECRET=localdevsecret
+      - ADMIN_PASSWORD=vote
+      - MONGODB_URI=mongodb://root:example@mongo:27017/cloudvote?authSource=admin
+    depends_on:
+      - mongo
+    ports:
+      - "5000:8080"
+    command: sh -c "gunicorn app:app -b 0.0.0.0:8080 --workers 1"
+
+volumes:
+  mongo_data:

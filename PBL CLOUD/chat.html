@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Chatbot</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: lavender; }
+    header { background: skyblue; color: white; padding: 15px; text-align: center; margin: -20px -20px 20px; }
+    nav { background: lightblue; text-align: center; padding: 10px; margin: -10px -20px 10px; }
+    nav a { color: darkblue; text-decoration: none; margin: 0 15px; font-weight: bold; }
+    nav a:hover { color: darkgreen; }
+    #log { border: 1px solid #ddd; padding: 10px; height: 60vh; overflow:auto; background: white; margin-bottom: 10px; }
+    .msg { margin: 8px 0; padding: 6px; border-radius: 4px; }
+    .user { color: #0b66c3; background: #e8f0fe; }
+    .bot { color: #111; background: #f0f0f0; }
+    form { display: flex; gap: 8px; }
+    input { flex: 1; padding: 8px; font-size: 1em; }
+    button { padding: 8px 16px; background: lightgreen; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background: mediumseagreen; color: white; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>CloudVote - AI Chatbot</h1>
+  <p>Get instant answers about voting</p>
+</header>
+
+<nav>
+  <a href="index.html">Home</a>
+  <a href="login.html">Voter Login</a>
+  <a href="vote.html">Vote Now</a>
+  <a href="admin.html">Admin</a>
+  <a href="chat.html">Chatbot</a>
+</nav>
+
+<div style="max-width:600px;margin:0 auto">
+  <p style="color:#666;font-size:0.9em"><strong>Welcome!</strong> Ask questions about voting, candidates, or how to use CloudVote. This chatbot is powered by OpenAI GPT.</p>
+  <div id="log"></div>
+  <form id="f">
+    <input id="input" autocomplete="off" placeholder="Ask a question (e.g., 'How do I vote?')" />
+    <button type="submit">Send</button>
+  </form>
+</div>
+
+  <script>
+    const log = document.getElementById('log')
+    const form = document.getElementById('f')
+    const input = document.getElementById('input')
+
+    function append(kind, text){
+      const el = document.createElement('div')
+      el.className = 'msg ' + (kind==='user'? 'user': 'bot')
+      el.textContent = (kind==='user'? 'You: ':'Bot: ') + text
+      log.appendChild(el)
+      log.scrollTop = log.scrollHeight
+    }
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault()
+      const text = input.value.trim()
+      if(!text) return
+      append('user', text)
+      input.value = ''
+      append('bot', '...')
+      try{
+        const res = await fetch('/api/chat', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({message: text})
+        })
+        const j = await res.json()
+        if(!res.ok){
+          const details = j.details ? ` ${j.details}` : ''
+          log.lastChild.textContent = 'Bot: Error — ' + (j.error || 'Request failed') + details
+        } else {
+          log.lastChild.textContent = 'Bot: ' + (j.reply || JSON.stringify(j))
+        }
+      }catch(err){
+        log.lastChild.textContent = 'Bot: (connection error) ' + err.message
+      }
+    })
+  </script>
+</body>
+</html>

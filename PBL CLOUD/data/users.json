@@ -1,0 +1,28 @@
+{
+  "voters": [
+    {
+      "id": "voter3",
+      "name": "yuvi",
+      "party": "Alpha",
+      "password_hash": "scrypt:32768:8:1$UVAtmCavQPKZaE4c$b58000ab6da149fe028d784c326d8f99aa41ef960999a0035b5b2e641431b962ce0de2b41e9be039f27d3e11244666312cc60f132e034bb707b2f407166bfbc2"
+    },
+    {
+      "id": "voter4",
+      "name": "harsh",
+      "party": "Beta",
+      "password_hash": "scrypt:32768:8:1$vf4jZA95ZikmQO6h$8a9cc4a8ddac3ab2ef7ad4589c1849a7b1402990c1d814b3ca2c06487a175d07c9708bb219f1c9c759e8a86d0e78efc788a14c94fc338b10c5c3c9a4eaa52724"
+    },
+    {
+      "id": "voter5",
+      "name": "yyy",
+      "party": "Beta",
+      "password_hash": "scrypt:32768:8:1$eI2knLYqYFOtO81G$ae5b415cd8e81cfc9659b91c0add5f58ac8d68faad502a111ec0294dbda2d7e47c7293fa5845f75b077529574d2bd958ee81191567f8fb0a0426fc07e0acf659"
+    },
+    {
+      "id": "01",
+      "name": "Jaideep",
+      "party": "Beta",
+      "password_hash": "scrypt:32768:8:1$JnAwZhxf2rWlMtQy$f2e386d4fad0906b321f4c9c7a01871cf0de090c476f0e4f8968b18ceac5c3c4bd0c875be52194f56d93ecad014aeb33fa8829b0479cfb62a831ece665cb63df"
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Face Enrollment & Verify</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:12px;background:#f5f5f5}
+    .container{max-width:600px;margin:0 auto;background:white;padding:20px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+    h1{color:#333}
+    .camera-section{margin:20px 0;text-align:center}
+    video{width:100%;max-width:400px;height:auto;background:#000;border-radius:8px;margin:10px 0;display:block}
+    canvas{display:none}
+    .controls{margin:15px 0}
+    input,select,button{padding:8px 12px;margin:5px;border-radius:4px;border:1px solid #ddd;font-size:14px}
+    input,select{width:200px}
+    button{background:#4CAF50;color:white;border:none;cursor:pointer;transition:background 0.3s}
+    button:hover{background:#45a049}
+    button:disabled{background:#ccc;cursor:not-allowed}
+    #out{background:#f9f9f9;padding:10px;border-radius:4px;max-height:200px;overflow-y:auto;margin-top:15px;white-space:pre-wrap}
+    .status{padding:10px;margin:10px 0;border-radius:4px;font-weight:bold}
+    .status.error{background:#f8d7da;color:#721c24}
+    .status.success{background:#d4edda;color:#155724}
+    .status.info{background:#d1ecf1;color:#0c5460}
+    .button-group{display:flex;flex-wrap:wrap;justify-content:center;gap:5px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Face Enrollment & Verification</h1>
+    <p>This page uses your camera to capture a face descriptor for voter enrollment or verification.</p>
+
+    <div class="camera-section">
+      <h3>Camera Feed</h3>
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="canvas"></canvas>
+      <div id="status"></div>
+      <button id="snapshot" style="background:#2196F3">📷 Capture Snapshot</button>
+    </div>
+
+    <div class="controls">
+      <h3>Enrollment / Verification</h3>
+      <input id="voterId" placeholder="id (e.g. voter1 or candidate1)" />
+      <select id="role"><option value="voter">Voter</option><option value="candidate">Candidate</option></select>
+      <div class="button-group">
+        <button id="enroll">✓ Enroll Face</button>
+        <button id="verify">✓ Verify Face</button>
+      </div>
+    </div>
+
+    <h3>Log</h3>
+    <pre id="out"></pre>
+  </div>
+
+  <!-- face-api.js from CDN (you still need model files under /models) -->
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const out = document.getElementById('out');
+    const voterId = document.getElementById('voterId');
+    const statusDiv = document.getElementById('status');
+
+    function log(s, type='info') {
+      const ts = new Date().toLocaleTimeString();
+      out.textContent += `[${ts}] ${s}\n`;
+      out.scrollTop = out.scrollHeight;
+      if (type === 'error') statusDiv.className = 'status error';
+      else if (type === 'success') statusDiv.className = 'status success';
+      else statusDiv.className = 'status info';
+      statusDiv.textContent = s;
+    }
+
+    async function setupCamera() {
+      try {
+        log('Requesting camera access...', 'info');
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        await new Promise(r => video.onloadedmetadata = r);
+        log('Camera ready', 'success');
+      } catch (e) {
+        log('Camera error: ' + e.message, 'error');
+        throw e;
+      }
+    }
+
+    async function loadModels() {
+      try {
+        log('Loading face-api models...', 'info');
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+        await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+        log('Models loaded successfully', 'success');
+      } catch (e) {
+        log('Model load error: ' + e.message, 'error');
+        throw e;
+      }
+    }
+
+    async function detectFace() {
+      try {
+        const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (!det) throw new Error('No face detected');
+        return det;
+      } catch (e) {
+        log('Detection error: ' + e.message, 'error');
+        throw e;
+      }
+    }
+
+    async function descriptorFromVideo() {
+      const det = await detectFace();
+      return Array.from(det.descriptor);
+    }
+
+    function captureImageData() {
+      const c = document.createElement('canvas');
+      c.width = video.videoWidth;
+      c.height = video.videoHeight;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(video, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.8);
+    }
+
+    document.getElementById('snapshot').addEventListener('click', async () => {
+      try {
+        log('Capturing snapshot...', 'info');
+        const det = await detectFace();
+        log(`Face detected! Distance: ${det.detection.score.toFixed(3)}`, 'success');
+        // Draw snapshot to canvas for display
+        const c = canvas;
+        c.width = video.videoWidth;
+        c.height = video.videoHeight;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(video, 0, 0, c.width, c.height);
+        // Optionally draw detection box
+        const resized = faceapi.resizeResults(det, { width: video.videoWidth, height: video.videoHeight });
+        faceapi.draw.drawDetections(c, resized);
+      } catch (e) {
+        log('Snapshot error: ' + e.message, 'error');
+      }
+    });
+
+    document.getElementById('enroll').addEventListener('click', async () => {
+      try {
+        const id = voterId.value.trim();
+        if (!id) return alert('Enter voter id');
+        log('Capturing face for enrollment...', 'info');
+        const desc = await descriptorFromVideo();
+        log('Face captured, sending to /api/face/register...', 'info');
+        const role = document.getElementById('role').value;
+        const image = captureImageData();
+        const res = await fetch('/api/face/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, descriptor: desc, role, image })
+        });
+        const j = await res.json();
+        if (!res.ok) {
+          log('Enrollment error: ' + (j.error || res.statusText), 'error');
+        } else {
+          log('Enrollment success: ' + JSON.stringify(j), 'success');
+        }
+      } catch (e) {
+        log('Error: ' + e.message, 'error');
+      }
+    });
+
+    document.getElementById('verify').addEventListener('click', async () => {
+      try {
+        log('Capturing face for verification...', 'info');
+        const desc = await descriptorFromVideo();
+        log('Face captured, sending to /api/face/verify...', 'info');
+        const res = await fetch('/api/face/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ descriptor: desc })
+        });
+        const j = await res.json();
+        if (!res.ok) {
+          log('Verification error: ' + (j.error || res.statusText), 'error');
+        } else {
+          const matchText = j.match ? `Match found: ${j.id || 'unknown'}, distance: ${j.distance?.toFixed(3) || 'N/A'}` : 'No match';
+          log('Verification result: ' + matchText, j.match ? 'success' : 'info');
+          log('Full response: ' + JSON.stringify(j), 'info');
+        }
+      } catch (e) {
+        log('Error: ' + e.message, 'error');
+      }
+    });
+
+    (async () => {
+      try {
+        await loadModels();
+        await setupCamera();
+        log('Ready to use', 'success');
+      } catch (e) {
+        log('Initialization failed: ' + e.message, 'error');
+      }
+    })();
+  </script>
+</body>
+</html>
+</body>
+</html>

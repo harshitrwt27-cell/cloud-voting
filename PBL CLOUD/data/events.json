@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "id": "event1",
+      "title": "2025 General Elections",
+      "description": "Presidential and parliamentary elections",
+      "start_date": "2025-01-15",
+      "end_date": "2025-01-15",
+      "status": "active",
+      "candidates": [
+        "optionA",
+        "optionB",
+        "optionC"
+      ]
+    }
+  ]
+}

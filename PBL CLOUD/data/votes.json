@@ -1,0 +1,52 @@
+{
+  "options": {
+    "optionA": 4,
+    "optionB": 3,
+    "optionC": 1
+  },
+  "records": [
+    {
+      "voter_id": "voter1",
+      "option": "optionA",
+      "timestamp": "2025-11-07T14:27:33.292947Z"
+    },
+    {
+      "voter_id": "03",
+      "option": "optionA",
+      "timestamp": "2025-11-07T14:32:59.831969Z"
+    },
+    {
+      "voter_id": "voter3",
+      "option": "optionA",
+      "timestamp": "2025-11-07T14:33:55.700345Z"
+    },
+    {
+      "voter_id": "voter4",
+      "option": "optionB",
+      "timestamp": "2025-11-07T14:41:13.361634Z"
+    },
+    {
+      "voter_id": "voter5",
+      "option": "optionB",
+      "timestamp": "2025-11-15T15:31:58.324496Z"
+    },
+    {
+      "voter_id": "voter5",
+      "option": "optionB",
+      "event_id": "default",
+      "timestamp": "2025-11-15T15:37:06.310496Z"
+    },
+    {
+      "voter_id": "voter5",
+      "option": "optionA",
+      "event_id": "event1",
+      "timestamp": "2025-11-15T15:37:24.385020Z"
+    },
+    {
+      "voter_id": "01",
+      "option": "optionC",
+      "event_id": "default",
+      "timestamp": "2025-11-15T15:45:18.766983Z"
+    }
+  ]
+}

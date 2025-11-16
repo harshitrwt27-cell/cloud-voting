@@ -1,0 +1,286 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Biometric Verification</title>
+  <style>
+    body{
+      font-family: system-ui, Segoe UI, Arial;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container{
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      padding: 30px;
+    }
+    h1{
+      text-align: center;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .subtitle{
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .method-card{
+      background: #f8f9fa;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 15px 0;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .method-card:hover{
+      border-color: #667eea;
+      background: #f0f3ff;
+      transform: translateY(-2px);
+    }
+    .method-card h3{
+      margin: 0 0 8px 0;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .method-card p{
+      margin: 0;
+      color: #666;
+      font-size: 14px;
+    }
+    .icon{
+      font-size: 24px;
+    }
+    button{
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+      margin-top: 10px;
+      transition: background 0.3s;
+    }
+    button:hover{
+      background: #764ba2;
+    }
+    button:disabled{
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #status{
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      text-align: center;
+      display: none;
+      font-weight: bold;
+    }
+    #status.success{
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+    #status.error{
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+    #status.info{
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      display: block;
+    }
+    .fingerprint-info{
+      background: #f0f3ff;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 15px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.5;
+    }
+    #fingerprintValue{
+      font-family: monospace;
+      word-break: break-all;
+      background: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      margin-top: 8px;
+      font-size: 12px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 Biometric Verification</h1>
+    <p class="subtitle">Enhanced security for voting verification</p>
+
+    <div class="method-card" onclick="selectMethod('fingerprint')">
+      <h3><span class="icon">👆</span> Device Fingerprint</h3>
+      <p>Unique identifier based on your device and browser configuration</p>
+      <button>Use Device Fingerprint</button>
+    </div>
+
+    <div class="method-card" onclick="selectMethod('camera')">
+      <h3><span class="icon">📷</span> Camera (Face/Iris)</h3>
+      <p>Capture your face for biometric verification</p>
+      <button>Access Camera</button>
+    </div>
+
+    <div class="method-card" onclick="selectMethod('webauthn')">
+      <h3><span class="icon">🔑</span> WebAuthn (Biometric/PIN)</h3>
+      <p>Use your device's built-in authentication (fingerprint, face ID, or PIN)</p>
+      <button>Use Device Authentication</button>
+    </div>
+
+    <div id="status"></div>
+
+    <!-- Hidden video for camera capture -->
+    <video id="video" autoplay muted playsinline style="display:none;width:100%;height:auto;background:#000;border-radius:6px;margin-top:15px;"></video>
+    
+    <div id="fingerprintInfo" class="fingerprint-info" style="display:none;">
+      <strong>Device Fingerprint Generated:</strong>
+      <div id="fingerprintValue"></div>
+      <p style="margin:8px 0 0 0;color:#666;">
+        This fingerprint uniquely identifies your device and prevents duplicate voting from the same device.
+      </p>
+    </div>
+
+    <!-- face-api.js for camera capture (optional) -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <script>
+      const statusDiv = document.getElementById('status');
+
+      function showStatus(msg, type){
+        statusDiv.textContent = msg;
+        statusDiv.className = type;
+      }
+
+      // Generate device fingerprint
+      function generateFingerprint(){
+        const data = {
+          userAgent: navigator.userAgent,
+          language: navigator.language,
+          platform: navigator.platform,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+          deviceMemory: navigator.deviceMemory,
+          maxTouchPoints: navigator.maxTouchPoints,
+          vendor: navigator.vendor,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          screen: {
+            width: window.screen.width,
+            height: window.screen.height,
+            colorDepth: window.screen.colorDepth,
+            pixelDepth: window.screen.pixelDepth,
+          },
+          plugins: Array.from(navigator.plugins).map(p => p.name).join(','),
+          webgl: getWebGLInfo()
+        };
+        
+        // Create a hash of this data
+        const jsonStr = JSON.stringify(data);
+        return btoa(jsonStr).substring(0, 32); // base64 truncated to 32 chars
+      }
+
+      function getWebGLInfo(){
+        try{
+          const canvas = document.createElement('canvas');
+          const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+          if(!gl) return 'unknown';
+          return gl.getParameter(gl.RENDERER);
+        }catch(e){
+          return 'unknown';
+        }
+      }
+
+      async function selectMethod(method){
+        if(method === 'fingerprint'){
+          showStatus('Generating device fingerprint...', 'info');
+          const fp = generateFingerprint();
+          document.getElementById('fingerprintValue').textContent = fp;
+          document.getElementById('fingerprintInfo').style.display = 'block';
+          
+          // Store in session
+          sessionStorage.setItem('biometricMethod', 'fingerprint');
+          sessionStorage.setItem('biometricData', fp);
+          
+          showStatus('✓ Device fingerprint captured! Store this ID: ' + fp.substring(0, 16) + '...', 'success');
+          
+          setTimeout(() => {
+            alert('Fingerprint captured and stored in your session. You can now vote with this verification.');
+            window.history.back();
+          }, 2000);
+        }
+        else if(method === 'camera'){
+          showStatus('Requesting camera access...', 'info');
+          try{
+            const stream = await navigator.mediaDevices.getUserMedia({video: true});
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+            video.style.display = 'block';
+            showStatus('Camera ready. Click snapshot button below.', 'success');
+          }catch(e){
+            showStatus('Camera access denied: ' + e.message, 'error');
+          }
+        }
+        else if(method === 'webauthn'){
+          showStatus('Initializing WebAuthn...', 'info');
+          try{
+            if(!window.PublicKeyCredential){
+              throw new Error('WebAuthn not supported on this device');
+            }
+            
+            // Request authentication using device biometrics
+            const credential = await navigator.credentials.get({
+              publicKey: {
+                challenge: new Uint8Array(32),
+                timeout: 60000,
+                userVerification: 'preferred',
+                rpId: window.location.hostname
+              }
+            });
+            
+            if(credential){
+              const id = btoa(String.fromCharCode.apply(null, new Uint8Array(credential.id))).substring(0, 32);
+              sessionStorage.setItem('biometricMethod', 'webauthn');
+              sessionStorage.setItem('biometricData', id);
+              showStatus('✓ Device authentication successful!', 'success');
+              setTimeout(() => {
+                alert('WebAuthn verification complete. You can now vote.');
+                window.history.back();
+              }, 1500);
+            }
+          }catch(e){
+            showStatus('WebAuthn error: ' + e.message + '. Try device fingerprint instead.', 'error');
+          }
+        }
+      }
+
+      // Auto-generate fingerprint on page load for reference
+      window.addEventListener('load', () => {
+        const fp = generateFingerprint();
+        console.log('Your device fingerprint (for debugging):', fp);
+      });
+    </script>
+  </div>
+</body>
+</html>

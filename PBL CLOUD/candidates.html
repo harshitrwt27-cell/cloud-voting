@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Candidates</title>
+  <style>
+    body{font-family:system-ui,Arial;margin:16px}
+    .card{display:inline-block;border:1px solid #ddd;padding:8px;margin:8px;border-radius:6px;width:180px;text-align:center}
+    img{max-width:160px;height:auto;border-radius:4px}
+  </style>
+</head>
+<body>
+  <h1>Candidates</h1>
+  <p>This view requires admin login — open <a href="admin.html">Admin</a> and log in first.</p>
+  <div id="grid"></div>
+  <script>
+    async function apiGet(path){
+      const res = await fetch(path, {credentials: 'same-origin'});
+      if(!res.ok) throw new Error(res.statusText||'Request failed');
+      return res.json();
+    }
+    async function refresh(){
+      const grid = document.getElementById('grid'); grid.innerHTML = 'Loading...';
+      try{
+        const data = await apiGet('/api/admin/all-data');
+        const users = {};
+        (data.users.voters||[]).forEach(u=> users[u.id]=u.name||u.id);
+        const faces = data.faces || {};
+        const cards = [];
+        for(const id in faces){
+          const item = faces[id];
+          const role = (typeof item === 'object' && item.role) ? item.role : '';
+          const desc = (typeof item === 'object' && item.descriptor)? item.descriptor : item;
+          if(role === 'candidate'){
+            const img = (item && item.image_url) ? item.image_url : '';
+            const title = users[id] || id;
+            cards.push(`<div class="card"><div><strong>${title}</strong></div><div style="margin:6px">${img? `<img src="${img}" alt="${title}">` : '<div style="height:100px;background:#f5f5f5;display:flex;align-items:center;justify-content:center">No image</div>'}</div><div style="font-size:0.9em;color:#444">${id}</div></div>`)
+          }
+        }
+        grid.innerHTML = cards.join('') || '<div>No candidates registered</div>'
+      }catch(e){ grid.textContent = 'Error: '+e.message }
+    }
+    refresh();
+  </script>
+</body>
+</html>

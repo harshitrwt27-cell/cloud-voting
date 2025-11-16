@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CloudVote | Vote Now</title>
+    <style>
+        body {
+            background-color: mintcream;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        header {
+            background-color: skyblue;
+            color: white;
+            padding: 15px;
+        }
+        .vote-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 30px;
+        }
+        .candidate {
+            background-color: whitesmoke;
+            margin: 20px;
+            padding: 20px;
+            width: 200px;
+            border-radius: 15px;
+            box-shadow: 0 0 10px lightgray;
+        }
+        .candidate img {
+            width: 100%;
+            border-radius: 10px;
+        }
+        button {
+            background-color: lightgreen;
+            border: none;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: mediumseagreen;
+            color: white;
+        }
+        nav {
+            margin-bottom: 10px;
+        }
+        a {
+            text-decoration: none;
+            color: darkblue;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>Vote Now</h2>
+    <p>Select your preferred candidate below</p>
+</header>
+
+<nav>
+    <a href="index.html">Home</a> |
+    <a href="login.html">Logout</a> |
+    <a href="admin.html">Admin Dashboard</a>
+</nav>
+
+<div class="vote-container">
+    <div class="candidate">
+        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Candidate 1">
+        <h3>Candidate A</h3>
+        <p>Party Alpha</p>
+        <button data-option="optionA">Vote</button>
+    </div>
+
+    <div class="candidate">
+        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135823.png" alt="Candidate 2">
+        <h3>Candidate B</h3>
+        <p>Party Beta</p>
+        <button data-option="optionB">Vote</button>
+    </div>
+
+    <div class="candidate">
+        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135768.png" alt="Candidate 3">
+        <h3>Candidate C</h3>
+        <p>Party Gamma</p>
+                <button data-option="optionC">Vote</button>
+    </div>
+</div>
+
+<div id="voteMsg" style="text-align:center;margin-top:12px;color:crimson"></div>
+<div id="results" style="text-align:center;margin-top:18px"></div>
+
+<!-- hidden video for face capture -->
+<video id="vvideo" autoplay muted playsinline style="display:none;width:320px;height:auto;background:#000;border-radius:6px;margin:10px auto;"></video>
+<canvas id="vcanvas" style="display:none;"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<script>
+async function apiPost(path, body){
+    try{
+        console.log('POST to', path, 'with body keys:', Object.keys(body));
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 sec timeout
+        const res = await fetch(path, {
+            method:'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        console.log('Response status:', res.status);
+        const json = await res.json().catch(()=>({}));
+        console.log('Response JSON:', json);
+        if (!res.ok) throw new Error(json.error || res.statusText || 'Request failed');
+        return json;
+    }catch(e){
+        console.error('apiPost error:', e);
+        throw e;
+    }
+}
+async function apiGet(path){
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(res.statusText || 'Request failed');
+    return res.json();
+}
+
+const voterId = localStorage.getItem('voterId');
+const voterName = localStorage.getItem('voterName');
+const welcome = document.createElement('div');
+welcome.style.textAlign='center';
+welcome.style.marginTop='12px';
+if (!voterId){
+    welcome.innerHTML = 'Not logged in. <a href="login.html">Login</a> first.';
+    document.body.insertBefore(welcome, document.querySelector('.vote-container'));
+} else {
+    welcome.textContent = `Hello, ${voterName || voterId}`;
+    document.body.insertBefore(welcome, document.querySelector('.vote-container'));
+}
+
+// Setup face-api models and camera for descriptor capture
+// DISABLED: Using voter ID only for voting (face detection removed)
+const vvideo = document.getElementById('vvideo');
+const vcanvas = document.getElementById('vcanvas');
+let faceModelsLoaded = false;
+let cameraReady = false;
+
+async function loadFaceModels(){
+    try{
+        console.log('Loading face models from CDN...');
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.10/model/'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.10/model/'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.10/model/')
+        ]);
+        faceModelsLoaded = true;
+        console.log('Face models loaded');
+    }catch(e){ 
+        console.error('Face models failed to load', e);
+    }
+}
+
+async function setupCamera(){
+    try{
+        console.log('Setting up camera...');
+        const stream = await navigator.mediaDevices.getUserMedia({video:true});
+        vvideo.srcObject = stream;
+        await new Promise(resolve => { vvideo.onloadedmetadata = resolve; });
+        cameraReady = true;
+        console.log('Camera ready');
+    }catch(e){ 
+        console.error('Camera setup failed', e);
+        throw new Error('Camera access failed: ' + e.message);
+    }
+}
+
+async function captureAndUploadFace(){
+    // Capture face image and descriptor
+    if(!faceModelsLoaded) await loadFaceModels();
+    if(!cameraReady) await setupCamera();
+    
+    // Show video briefly while capturing
+    const vvideo = document.getElementById('vvideo');
+    vvideo.style.display = 'block';
+    
+    try{
+        // Small delay to ensure video is playing
+        await new Promise(r => setTimeout(r, 500));
+        
+        // Detect face
+        const det = await faceapi.detectSingleFace(vvideo, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        if(!det) {
+            vvideo.style.display = 'none';
+            throw new Error('No face detected - ensure your face is clearly visible');
+        }
+        
+        // Capture image from video
+        const vcanvas = document.getElementById('vcanvas');
+        vcanvas.width = vvideo.videoWidth;
+        vcanvas.height = vvideo.videoHeight;
+        const ctx = vcanvas.getContext('2d');
+        ctx.drawImage(vvideo, 0, 0, vcanvas.width, vcanvas.height);
+        const imageData = vcanvas.toDataURL('image/jpeg', 0.9);
+        
+        // Get face descriptor
+        const descriptor = Array.from(det.descriptor);
+        
+        vvideo.style.display = 'none';
+        console.log('✓ Face captured:', descriptor.length, 'dimensions, image size:', imageData.length);
+        return { descriptor, image: imageData };
+    }catch(e){ 
+        vvideo.style.display = 'none';
+        console.error('Face capture error:', e);
+        throw e;
+    }
+}
+
+document.querySelectorAll('button[data-option]').forEach(btn => {
+    btn.addEventListener('click', async ()=>{
+        const option = btn.dataset.option;
+        const msg = document.getElementById('voteMsg');
+        msg.style.color='black'; msg.textContent='📷 Verifying your face...';
+        if (!voterId){ msg.style.color='crimson'; msg.textContent='Login first.'; return; }
+        try{
+            // Get stored login face descriptor
+            const storedDescriptor = localStorage.getItem('loginFaceDescriptor');
+            if(!storedDescriptor){
+                throw new Error('Face data from login not found. Please login again.');
+            }
+            
+            // Capture current face
+            console.log('Starting face verification...');
+            const faceData = await captureAndUploadFace();
+            if(!faceData || !faceData.descriptor){
+                throw new Error('Could not capture face for verification');
+            }
+            
+            // Compare faces
+            msg.textContent='Comparing face with login...';
+            const stored = JSON.parse(storedDescriptor);
+            const current = faceData.descriptor;
+            const distance = calculateFaceDistance(stored, current);
+            const threshold = 0.6;
+            
+            console.log('Face distance:', distance);
+            if(distance > threshold){
+                throw new Error('❌ Face does not match login. Verification failed.');
+            }
+            
+            console.log('✓ Face verified. Submitting vote...');
+            msg.textContent='✓ Face verified. Submitting vote...';
+            const votePayload = {id: voterId, option, descriptor: faceData.descriptor, image: faceData.image};
+            const res = await apiPost('/api/vote', votePayload);
+            console.log('Vote response:', res);
+            msg.style.color='green'; msg.textContent='✓ Vote recorded. Thank you.';
+            document.querySelectorAll('button[data-option]').forEach(b => b.disabled = true);
+            renderResults(res.option_counts);
+        } catch(err){
+            console.error('Vote error:', err);
+            msg.style.color='crimson'; msg.textContent = 'Vote failed: ' + err.message;
+            if (err.message.includes('already voted')){
+                document.querySelectorAll('button[data-option]').forEach(b => b.disabled = true);
+            }
+        }
+    });
+});
+
+function calculateFaceDistance(desc1, desc2){
+    if(!desc1 || !desc2 || desc1.length !== desc2.length) return 999;
+    let sum = 0;
+    for(let i=0; i<desc1.length; i++){
+        const d = desc1[i] - desc2[i];
+        sum += d * d;
+    }
+    return Math.sqrt(sum);
+}// start loading models in background
+loadFaceModels().catch(e => console.error('Failed to preload models:', e));
+
+async function loadResults(){
+    try{
+        const data = await apiGet('/api/results');
+        renderResults(data.options || data);
+    }catch(err){
+        document.getElementById('results').textContent = 'Error loading results: ' + err.message;
+    }
+}
+function renderResults(obj){
+    const out = Object.entries(obj).map(([k,v]) => `<div>${k}: ${v}</div>`).join('');
+    document.getElementById('results').innerHTML = `<h3>Current results</h3>${out}`;
+}
+loadResults();
+</script>
+
+</body>
+</html>

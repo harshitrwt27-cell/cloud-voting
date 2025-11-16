@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CloudVote | Voter Login</title>
+    <style>
+        body {
+            background-color: lavenderblush;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+        }
+        header {
+            background-color: skyblue;
+            color: white;
+            padding: 15px;
+        }
+        .login-box {
+            background-color: whitesmoke;
+            width: 300px;
+            margin: 50px auto;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 10px lightgray;
+        }
+        input {
+            width: 80%;
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid lightgray;
+        }
+        button {
+            background-color: lightgreen;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 80%;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: seagreen;
+            color: white;
+        }
+        #snapBtn {
+            background-color: orange !important;
+        }
+        #retryBtn {
+            background-color: #dc3545 !important;
+        }
+        nav {
+            margin-top: 20px;
+        }
+        a {
+            text-decoration: none;
+            color: darkblue;
+        }
+        video {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 6px;
+            background: #000;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>Voter Login - CloudVote</h2>
+</header>
+
+<div class="login-box">
+    <img src="https://cdn-icons-png.flaticon.com/512/942/942748.png" width="80" alt="Login Icon"><br>
+    <h3>Enter Your Details</h3>
+    
+    <!-- Login Form -->
+    <div id="loginForm" style="display:block;">
+        <input id="voterId" type="text" placeholder="Voter ID"><br>
+        <input id="voterPassword" type="password" placeholder="Password"><br>
+        <button id="loginBtn">Login with Face Scan</button>
+        <div id="loginMsg" role="status" style="margin-top:10px;color:crimson;min-height:20px;"></div>
+    </div>
+
+    <!-- Face Capture Section -->
+    <div id="faceCapture" style="display:none;text-align:center;">
+        <p style="font-weight:bold;color:#0066cc;">📷 Position your face in camera</p>
+        <video id="loginVideo" autoplay muted playsinline></video>
+        <br>
+        <button id="snapBtn">📸 Capture Face</button>
+        <button id="retryBtn">Retry</button>
+        <div id="faceMsg" role="status" style="margin-top:10px;color:crimson;min-height:20px;"></div>
+    </div>
+</div>
+
+<canvas id="loginCanvas" style="display:none;"></canvas>
+
+<nav>
+    <a href="index.html">Back to Home</a>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<script>
+let faceModelsLoaded = false;
+let capturedFaceData = null;
+
+async function apiPost(path, body){
+    console.log('API POST:', path, body);
+    const res = await fetch(path, {
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body: JSON.stringify(body)
+    });
+    const json = await res.json().catch(()=>({}));
+    if (!res.ok) throw new Error(json.error || res.statusText || 'Request failed');
+    return json;
+}
+
+async function loadFaceModels(){
+    if(faceModelsLoaded) return;
+    try{
+        console.log('Loading face models from CDN...');
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.10/model/'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.10/model/'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.10/model/')
+        ]);
+        faceModelsLoaded = true;
+        console.log('Face models loaded successfully from CDN');
+    }catch(e){
+        console.error('Face models error:', e);
+        throw new Error('Face models failed to load: ' + e.message);
+    }
+}
+
+async function startFaceCapture(){
+    try{
+        console.log('Starting face capture...');
+        await loadFaceModels();
+        
+        const video = document.getElementById('loginVideo');
+        console.log('Requesting camera access...');
+        const stream = await navigator.mediaDevices.getUserMedia({video:true});
+        video.srcObject = stream;
+        
+        await new Promise(r => { video.onloadedmetadata = r; });
+        console.log('Camera started');
+    }catch(e){
+        console.error('Camera error:', e);
+        document.getElementById('faceMsg').textContent = 'Camera error: ' + e.message;
+        throw e;
+    }
+}
+
+async function captureFace(){
+    const video = document.getElementById('loginVideo');
+    const canvas = document.getElementById('loginCanvas');
+    const msg = document.getElementById('faceMsg');
+    msg.style.color = 'black';
+    msg.textContent = 'Detecting face...';
+    
+    try{
+        console.log('Detecting face...');
+        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+        
+        if(!detection){
+            msg.style.color = 'crimson';
+            msg.textContent = '❌ No face detected. Ensure your face is clearly visible.';
+            return;
+        }
+        
+        console.log('Face detected, capturing image...');
+        
+        // Draw face on canvas
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        
+        // Create image data and store face descriptor
+        const imageData = canvas.toDataURL('image/jpeg', 0.9);
+        const descriptor = Array.from(detection.descriptor);
+        
+        capturedFaceData = { descriptor, image: imageData };
+        msg.style.color = 'green';
+        msg.textContent = '✓ Face captured! Logging in...';
+        
+        console.log('Face captured:', descriptor.length, 'dimensions');
+        
+        // Stop camera
+        video.srcObject.getTracks().forEach(t => t.stop());
+        
+        // Proceed with login
+        setTimeout(()=>{
+            performLogin(
+                document.getElementById('voterId').value.trim(),
+                document.getElementById('voterPassword').value
+            );
+        }, 1000);
+    }catch(e){
+        console.error('Face capture error:', e);
+        msg.style.color = 'crimson';
+        msg.textContent = 'Face capture error: ' + e.message;
+    }
+}
+
+async function performLogin(id, pwd){
+    const msg = document.getElementById('faceMsg');
+    if(!id || !pwd){
+        msg.style.color = 'crimson';
+        msg.textContent = 'Please enter ID and password';
+        return;
+    }
+    msg.style.color = 'black';
+    msg.textContent = 'Logging in...';
+    
+    try{
+        console.log('Attempting login for:', id);
+        const user = await apiPost('/api/login', {id, password: pwd});
+        console.log('Login successful:', user);
+        
+        localStorage.setItem('voterId', user.id);
+        localStorage.setItem('voterName', user.name || '');
+        if(capturedFaceData){
+            localStorage.setItem('loginFaceDescriptor', JSON.stringify(capturedFaceData.descriptor));
+            localStorage.setItem('loginFaceImage', capturedFaceData.image);
+            console.log('Face data stored in localStorage');
+        }
+        
+        msg.style.color = 'green';
+        msg.textContent = 'Login successful! Redirecting...';
+        setTimeout(()=> window.location.href='vote.html', 1500);
+    }catch(err){
+        console.error('Login error:', err);
+        msg.style.color = 'crimson';
+        msg.textContent = 'Login failed: ' + err.message;
+    }
+}
+
+// Event Listeners
+document.getElementById('loginBtn').addEventListener('click', async ()=>{
+    const id = document.getElementById('voterId').value.trim();
+    const pwd = document.getElementById('voterPassword').value;
+    const loginMsg = document.getElementById('loginMsg');
+    
+    if(!id || !pwd){
+        loginMsg.textContent = 'Please enter ID and password';
+        loginMsg.style.color = 'crimson';
+        return;
+    }
+    
+    loginMsg.textContent = 'Starting camera...';
+    loginMsg.style.color = 'black';
+    
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('faceCapture').style.display = 'block';
+    
+    try{
+        await startFaceCapture();
+        document.getElementById('faceMsg').textContent = 'Camera ready. Click "Capture Face" button.';
+        document.getElementById('faceMsg').style.color = 'green';
+    }catch(e){
+        console.error('Error:', e);
+        document.getElementById('faceMsg').textContent = 'Error: ' + e.message;
+        document.getElementById('faceMsg').style.color = 'crimson';
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('faceCapture').style.display = 'none';
+    }
+});
+
+document.getElementById('snapBtn').addEventListener('click', captureFace);
+
+document.getElementById('retryBtn').addEventListener('click', ()=>{
+    console.log('Retry clicked');
+    const video = document.getElementById('loginVideo');
+    if(video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+    document.getElementById('faceCapture').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('loginMsg').textContent = '';
+    faceModelsLoaded = false;
+    capturedFaceData = null;
+});
+</script>
+
+</body>
+</html>

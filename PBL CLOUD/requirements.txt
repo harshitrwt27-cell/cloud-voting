@@ -1,0 +1,9 @@
+Flask
+Werkzeug
+flask-cors
+openai
+gunicorn
+# Add other deps used previously (pytest etc.)
+pytest
+pymongo
+dnspython
